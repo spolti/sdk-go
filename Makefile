@@ -17,3 +17,16 @@ coverage="false"
 test:
 	make lint
 	@go test ./...
+
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+DEEPCOPY_GEN ?= $(LOCALBIN)/deepcopy-gen
+
+.PHONY: deepcopy
+deepcopy: $(DEEPCOPY_GEN) ## Download deepcopy-gen locally if necessary.
+$(DEEPCOPY_GEN): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) GO111MODULE=on go install k8s.io/gengo/examples/deepcopy-gen@latest
+	#/tmp/$(TOOL) --logtostderr --v=4 -i $$(echo $$PKGS | sed 's/ /,/g') -O zz_generated
