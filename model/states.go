@@ -71,6 +71,7 @@ type State interface {
 	GetUsedForCompensation() bool
 	GetEnd() *End
 	GetMetadata() *Metadata
+	DeepCopySate() State
 }
 
 // BaseState ...
