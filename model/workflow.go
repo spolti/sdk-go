@@ -576,7 +576,6 @@ func (e *End) UnmarshalJSON(data []byte) error {
 	} else {
 		*e = End(*end)
 	}
-
 	return nil
 }
 

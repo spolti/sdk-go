@@ -16,6 +16,8 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 )
 
 // SwitchState is workflow's gateways: direct transitions onf a workflow based on certain conditions.
@@ -34,6 +36,22 @@ type SwitchState struct {
 	// SwitchState specific timeouts
 	// +optional
 	Timeouts *SwitchStateTimeout `json:"timeouts,omitempty"`
+}
+
+func (s *SwitchState) MarshalJSON() ([]byte, error) {
+	type Alias SwitchState
+	custom, err := json.Marshal(&struct {
+		*Alias
+		Timeouts *SwitchStateTimeout `json:"timeouts,omitempty"`
+	}{
+		Alias:    (*Alias)(s),
+		Timeouts: s.Timeouts,
+	})
+
+	// Avoid marshal empty objects as null.
+	st := strings.Replace(string(custom), "\"eventConditions\":null,", "", 1)
+	st = strings.Replace(st, "\"end\":null,", "", -1)
+	return []byte(st), err
 }
 
 // DefaultCondition Can be either a transition or end definition
@@ -68,18 +86,6 @@ func (e *DefaultCondition) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
-}
-
-func (s *SwitchState) MarshalJSON() ([]byte, error) {
-	type Alias SwitchState
-	custom, err := json.Marshal(&struct {
-		*Alias
-		Timeouts *SwitchStateTimeout `json:"timeouts,omitempty"`
-	}{
-		Alias:    (*Alias)(s),
-		Timeouts: s.Timeouts,
-	})
-	return custom, err
 }
 
 // SwitchStateTimeout defines the specific timeout settings for switch state
@@ -122,6 +128,27 @@ type EventCondition struct {
 	Transition *Transition `json:"transition" validate:"omitempty"`
 }
 
+// UnmarshalJSON ...
+func (e *EventCondition) UnmarshalJSON(data []byte) error {
+	type defCondUnmarshal EventCondition
+
+	obj, str, err := primitiveOrStruct[string, defCondUnmarshal](data)
+	if err != nil {
+		return err
+	}
+
+	if obj == nil {
+		transition := &Transition{NextState: str}
+		e.Transition = transition
+	} else {
+		*e = EventCondition(*obj)
+	}
+
+	fmt.Printf("asdasasdasd %s \n", string(data))
+
+	return nil
+}
+
 // DataCondition specify a data-based condition statement which causes a transition to another workflow state
 // if evaluated to true.
 type DataCondition struct {
@@ -139,4 +166,17 @@ type DataCondition struct {
 	End *End `json:"end" validate:"omitempty"`
 	// Workflow transition if condition is evaluated to true
 	Transition *Transition `json:"transition,omitempty" validate:"omitempty"`
+}
+
+func (d *DataCondition) UnmarshalJSON(data []byte) error {
+	type defCondUnmarshal DataCondition
+
+	obj, _, err := primitiveOrStruct[string, defCondUnmarshal](data)
+	if err != nil {
+		return err
+	}
+
+	*d = DataCondition(*obj)
+
+	return nil
 }

@@ -727,207 +727,41 @@ states:
 func TestUnmarshalWorkflowSwitchState(t *testing.T) {
 	t.Run("WorkflowStatesTest", func(t *testing.T) {
 		workflow, err := FromYAMLSource([]byte(`
-id: helloworld
-version: '1.0.0'
-specVersion: '0.8'
-name: WorkflowStatesTest
-description: Inject Hello World
-start: GreetDelay
-metadata:
-  metadata1: metadata1
-  metadata2: metadata2
-auth:
-- name: testAuth
-  scheme: bearer
-  properties:
-    token: test_token
-    metadata:
-      auth1: auth1
-      auth2: auth2
-states:
-- name: GreetDelay
-  type: delay
-  timeDelay: PT5S
-  transition:
-    nextState: StoreCarAuctionBid
-- name: StoreCarAuctionBid
-  type: event
-  exclusive: true
-  onEvents:
-  - eventRefs:
-    - CarBidEvent
-    eventDataFilter:
-      useData: true
-      data: "test"
-      toStateData: "testing"
-    actionMode: parallel
-    actions:
-    - functionRef:
-        refName: StoreBidFunction
-        arguments:
-          bid: "${ .bid }"
-      name: bidFunctionRef
-    - eventRef:
-        triggerEventRef: StoreBidFunction
-        data: "${ .patientInfo }"
-        resultEventRef: StoreBidFunction
-        contextAttributes:
-          customer: "${ .thatBid }"
-          time: 32
-      name: bidEventRef
-  timeouts:
-    eventTimeout: PT1H
-    actionExecTimeout: PT3S
-    stateExecTimeout:
-      total: PT1S
-      single: PT2S
-  transition: ParallelExec
-- name: ParallelExec
-  type: parallel
-  completionType: atLeast
-  branches:
-    - name: ShortDelayBranch
+  start: ChooseOnLanguage
+  specVersion: "1.0"
+  id: test
+  functions:
+    - name: greetFunction
+      type: custom
+      operation: sysout
+  states:
+    - name: ChooseOnLanguage
+      type: switch
+      dataConditions:
+        - condition: "${ .language == \"English\" }"
+          transition: GreetInEnglish
+        - condition: "${ .language == \"Spanish\" }"
+          transition: GreetInSpanish
+      defaultCondition: GreetInEnglish
+    - name: GreetInEnglish
+      type: inject
+      data:
+        greeting: "Hello from JSON Workflow, "
+      transition: GreetPerson
+    - name: GreetInSpanish
+      type: inject
+      data:
+        greeting: "Saludos desde JSON Workflow, "
+      transition: GreetPerson
+    - name: GreetPerson
+      type: operation
       actions:
-        - subFlowRef: shortdelayworkflowid
-      timeouts:
-        actionExecTimeout: "PT5H"
-        branchExecTimeout: "PT6M"
-    - name: LongDelayBranch
-      actions:
-        - subFlowRef: longdelayworkflowid
-  timeouts:
-    branchExecTimeout: "PT6M"
-    stateExecTimeout:
-      total: PT1S
-      single: PT2S
-  numCompleted: 13
-  transition: CheckVisaStatusSwitchEventBased
-- name: CheckVisaStatusSwitchEventBased
-  type: switch
-  eventConditions:
-  - name: visaApprovedEvent
-    eventRef: visaApprovedEventRef
-    transition:
-      nextState: HandleApprovedVisa
-    metadata:
-      visa: allowed
-      mastercard: disallowed
-  - eventRef: visaRejectedEvent
-    transition:
-      nextState: HandleRejectedVisa
-    metadata:
-      test: tested
-  timeouts:
-    eventTimeout: PT10H
-    stateExecTimeout:
-      total: PT10S
-      single: PT20S
-  defaultCondition:
-    transition:
-      nextState: HelloStateWithDefaultConditionString
-- name: HelloStateWithDefaultConditionString
-  type: switch
-  dataConditions:
-  - condition: ${ true }
-    transition:
-      nextState: HandleApprovedVisa
-  - condition: ${ false }
-    transition:
-      nextState: HandleRejectedVisa
-  defaultCondition: SendTextForHighPriority
-- name: SendTextForHighPriority
-  type: foreach
-  inputCollection: "${ .messages }"
-  outputCollection: "${ .outputMessages }"
-  iterationParam: "${ .this }"
-  batchSize: 45
-  mode: sequential
-  actions:
-    - name: test
-      functionRef:
-        refName: sendTextFunction
-        arguments:
-          message: "${ .singlemessage }"
-      eventRef:
-        triggerEventRef: example1
-        resultEventRef: example2
-        # Added "resultEventTimeout" for action eventref
-        resultEventTimeout: PT12H
-  timeouts:
-    actionExecTimeout: PT11H
-    stateExecTimeout:
-      total: PT11S
-      single: PT22S
-  transition: HelloInject
-- name: HelloInject
-  type: inject
-  data:
-    result: Hello World, another state!
-  timeouts:
-    stateExecTimeout:
-      total: PT11M
-      single: PT22M
-  transition: WaitForCompletionSleep
-- name: WaitForCompletionSleep
-  type: sleep
-  duration: PT5S
-  timeouts:
-    stateExecTimeout:
-      total: PT100S
-      single: PT200S
-  end: 
-    terminate: true
-- name: CheckCreditCallback
-  type: callback
-  action:
-    functionRef:
-      refName: callCreditCheckMicroservice
-      arguments:
-        customer: "${ .customer }"
-        time: 48
-        argsObj: {
-          "name" : "hi",
-          "age": {
-            "initial": 10,
-            "final": 32
-          }
-        }
-    sleep:
-      before: PT10S
-      after: PT20S
-  eventRef: CreditCheckCompletedEvent
-  eventDataFilter:
-    useData: true
-    data: "test data"
-    toStateData: "${ .customer }"
-  timeouts:
-    actionExecTimeout: PT199M
-    eventTimeout: PT348S
-    stateExecTimeout:
-      total: PT115M
-      single: PT22M
-  transition: HandleApprovedVisa
-- name: HandleApprovedVisa
-  type: operation
-  actions:
-  - subFlowRef:
-      workflowId: handleApprovedVisaWorkflowID
-    name: subFlowRefName
-  - eventRef:
-      triggerEventRef: StoreBidFunction
-      data: "${ .patientInfo }"
-      resultEventRef: StoreBidFunction
-      contextAttributes:
-        customer: "${ .customer }"
-        time: 50
-    name: eventRefName
-  timeouts:
-    actionExecTimeout: PT777S
-    stateExecTimeout:
-      total: PT33M
-      single: PT123M
-  end:
-    terminate: true
+        - name: greetAction
+          functionRef:
+            refName: greetFunction
+            arguments:
+              message:  ".greeting+.name"
+      end: true
 `))
 		assert.Nil(t, err)
 		fmt.Println(err)
@@ -935,6 +769,8 @@ states:
 		b, err := json.Marshal(workflow)
 
 		assert.Nil(t, err)
+		fmt.Println(string(b))
+		assert.NotNil(t, err)
 
 		// workflow and auth metadata
 		assert.True(t, strings.Contains(string(b), "\"metadata\":{\"metadata1\":\"metadata1\",\"metadata2\":\"metadata2\"}"))
